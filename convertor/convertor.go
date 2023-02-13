@@ -1,5 +1,6 @@
 package convertor
 
+// int to base62 convertor
 func Convertor(id int64) string {
 
 	var chars string = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"

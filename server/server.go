@@ -21,7 +21,7 @@ type Server struct {
 	*mux.Router
 	db *sql.DB
 }
-
+// This function create server and create DBconnection and initial table is also created
 func CreateServer() *Server {
 	server := &Server{
 		Router: mux.NewRouter(),
@@ -36,6 +36,7 @@ func (s *Server) routes() {
 	s.HandleFunc("/generate-short-url", s.generateShortURL()).Methods("POST")
 }
 
+// method that generatesShortURL 
 func (s *Server) generateShortURL() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var url URL

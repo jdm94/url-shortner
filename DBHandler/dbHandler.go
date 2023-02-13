@@ -86,6 +86,14 @@ func CreateURLShortenerTable(db *sql.DB) error {
 
 func InsertRow(db *sql.DB, id int64, longUrl string, shortUrl string) error {
 	currentTime := time.Now().Unix()
+	count, err := countRows(db)
+	if err != nil {
+		return err
+	}
+
+	if count >= 20000 {
+		deleteOldRows(db)
+	}
 	query := `INSERT INTO url_shortener(id, long_url, short_url, created_at) VALUES (?, ?, ?, ?)`
 	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelfunc()
@@ -155,17 +163,52 @@ func DeleteRow(db *sql.DB, id int64) error {
 	return nil
 }
 
-// func DBHandle( {
-// 	db, err := dbConnectio()
-// 	if err = nil{
-// 		og.Printf("Error %s when getting db connection", er)
-// 		retrn
-//	}
-// 	defer db.Clos()
-// 	log.Printf("Sucessfully connected to database)
-// 	err = createURLShortenerTable(b)
-// 	if err = nil{
-// 		og.Printf("Create product table failed with error %s", er)
-// 	retun
-//	}
-// }
+func countRows(db *sql.DB) (int, error) {
+	query := `SELECT COUNT(*) FROM url_shortener`
+	var count int
+	rows, err := db.Query(query)
+	if err != nil {
+		log.Printf("Error %s while getting count",err)
+		return 0, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		err := rows.Scan(&count)
+		if err != nil {
+			log.Printf("Error %s while getting count",err)
+			return 0 , err
+		}
+	}
+	err = rows.Err()
+	if err != nil {
+		log.Printf("Error %s while getting count",err)
+		return 0, err
+	}
+	return count, nil
+}
+
+func deleteOldRows(db *sql.DB) error {
+	query := `DELETE FROM url_shortener.url_shortener as us WHERE id IN (SELECT id FROM (select * FROM url_shortener.url_shortener ORDER BY created_at ASC) urlTable )  LIMIT 3000`
+	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelfunc()
+	stmt, err := db.PrepareContext(ctx, query)
+	if err != nil {
+		log.Print("Error %s when preparing SQL statement", err)
+		return err
+	}
+	defer stmt.Close()
+	res, err := stmt.ExecContext(ctx)
+	if err != nil {
+		log.Printf("Error %s when deleting row from url_shortener table", err)
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("Error %s when finding rows affected", err)
+		return err
+	}
+	log.Printf("%d url mapping created ", rows)
+	return nil
+}
+
+
