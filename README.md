@@ -1,4 +1,4 @@
-# url-shortner
+# url-shortener
 Rest API written in GO that support url shortening
 
 ### Steps To Run 
