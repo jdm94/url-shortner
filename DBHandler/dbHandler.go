@@ -67,7 +67,7 @@ func CreateDBConnection() (*sql.DB, error) {
 
 func CreateURLShortenerTable(db *sql.DB) error {
 	query := `CREATE TABLE IF NOT EXISTS url_shortener(id int primary key, long_url text, 
-        short_url text, created_at datetime default CURRENT_TIMESTAMP)`
+        short_url text, created_at int default 0)`
 	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelfunc()
 	res, err := db.ExecContext(ctx, query)
@@ -85,7 +85,8 @@ func CreateURLShortenerTable(db *sql.DB) error {
 }
 
 func InsertRow(db *sql.DB, id int64, longUrl string, shortUrl string) error {
-	query := `INSERT INTO url_shortener(id, long_url, short_url) VALUES (?, ?, ?)`
+	currentTime := time.Now().Unix()
+	query := `INSERT INTO url_shortener(id, long_url, short_url, created_at) VALUES (?, ?, ?, ?)`
 	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelfunc()
 	stmt, err := db.PrepareContext(ctx, query)
@@ -94,9 +95,55 @@ func InsertRow(db *sql.DB, id int64, longUrl string, shortUrl string) error {
 		return err
 	}
 	defer stmt.Close()
-	res, err := stmt.ExecContext(ctx, id, longUrl, shortUrl)
+	res, err := stmt.ExecContext(ctx, id, longUrl, shortUrl, currentTime)
 	if err != nil {
 		log.Printf("Error %s when inserting row into url_shortener table", err)
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		log.Printf("Error %s when finding rows affected", err)
+		return err
+	}
+	log.Printf("%d url mapping created ", rows)
+	return nil
+}
+
+func SearchLongUrl(db *sql.DB, longUrl string) (int64, string, int64, error) {
+	query := `SELECT id, short_url,created_at  FROM url_shortener where long_url = ?`
+	rows, err := db.Query(query, longUrl)
+    if err != nil {
+        return 0, "", 0, err
+    }
+    defer rows.Close()
+	var id int64
+	var shortUrl string
+	var timeStamp int64
+	for rows.Next() {
+        if err := rows.Scan(&id, &shortUrl, &timeStamp); err != nil {
+			log.Printf("Error %s when finding rows ", err)
+            return 0, "", 0, err
+        }
+    }
+    if err = rows.Err(); err != nil {
+        return 0, "", 0, err
+    }
+    return id, shortUrl, timeStamp, nil
+}
+
+func DeleteRow(db *sql.DB, id int64) error {
+	query := `DELETE FROM url_shortener WHERE id = ?`
+	ctx, cancelfunc := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelfunc()
+	stmt, err := db.PrepareContext(ctx, query)
+	if err != nil {
+		log.Print("Error %s when preparing SQL statement", err)
+		return err
+	}
+	defer stmt.Close()
+	res, err := stmt.ExecContext(ctx, id)
+	if err != nil {
+		log.Printf("Error %s when deleting row from url_shortener table", err)
 		return err
 	}
 	rows, err := res.RowsAffected()
