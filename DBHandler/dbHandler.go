@@ -14,7 +14,7 @@ import (
 const (
 	username = "root"
 	password = "root"
-	hostname = "127.0.0.1:3306"
+	hostname = "mysql"
 	dbname   = "url_shortener"
 )
 
